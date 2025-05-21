@@ -36,6 +36,11 @@
     font-size: 20px;
     margin-top: 10px;
   }
+  #message {
+    margin-top: 10px;
+    height: 24px;
+    font-weight: bold;
+  }
 </style>
 </head>
 <body>
@@ -43,6 +48,7 @@
 <h1>Blox Blast Sederhana</h1>
 <div id="game"></div>
 <div id="score">Skor: 0</div>
+<div id="message"></div>
 
 <script>
   const ROWS = 8;
@@ -51,9 +57,11 @@
   let grid = [];
   let selected = null;
   let score = 0;
+  let busy = false;
 
   const gameDiv = document.getElementById('game');
   const scoreDiv = document.getElementById('score');
+  const messageDiv = document.getElementById('message');
 
   function randomColor() {
     return colors[Math.floor(Math.random() * colors.length)];
@@ -80,21 +88,41 @@
   }
 
   function blockClicked(r, c) {
+    if(busy) return;
     if(selected === null) {
       selected = {r, c};
       grid[r][c].classList.add('selected');
+      messageDiv.textContent = 'Pilih blok tetangga untuk ditukar.';
     } else {
+      if(selected.r === r && selected.c === c) {
+        // klik blok yang sama batal pilih
+        grid[selected.r][selected.c].classList.remove('selected');
+        selected = null;
+        messageDiv.textContent = '';
+        return;
+      }
       if((Math.abs(selected.r - r) + Math.abs(selected.c - c)) === 1) {
+        busy = true;
         swapBlocks(selected, {r, c});
         if(checkAndRemoveMatches()) {
-          // Match found and removed, add score etc.
+          messageDiv.textContent = 'Ledakan terjadi! +10 poin';
           score += 10;
           scoreDiv.textContent = `Skor: ${score}`;
-          refillGrid();
+          refillGrid().then(() => {
+            // Cek combo ledakan sampai habis
+            comboCheck();
+          });
         } else {
-          // No match, swap back
-          swapBlocks(selected, {r, c});
+          // Tidak ada ledakan, swap balik dan beri pesan
+          setTimeout(() => {
+            swapBlocks(selected, {r, c});
+            messageDiv.textContent = 'Tidak ada ledakan, coba posisi lain.';
+            busy = false;
+          }, 300);
         }
+      } else {
+        messageDiv.textContent = 'Blok yang ditukar harus bersebelahan!';
+        busy = false;
       }
       grid[selected.r][selected.c].classList.remove('selected');
       selected = null;
@@ -110,7 +138,6 @@
   }
 
   function checkAndRemoveMatches() {
-    // cari blok-blok membentuk 2x2 kotak atau lebih warna sama
     let toRemove = new Set();
 
     for(let r=0; r<ROWS-1; r++) {
@@ -130,7 +157,6 @@
 
     if(toRemove.size === 0) return false;
 
-    // hilangkan blok yang matching
     toRemove.forEach(pos => {
       let [r,c] = pos.split(',').map(Number);
       grid[r][c].style.backgroundColor = '';
@@ -138,7 +164,9 @@
     return true;
   }
 
-  function refillGrid() {
+  async function refillGrid() {
+    // Delay untuk efek refill
+    await new Promise(resolve => setTimeout(resolve, 300));
     for(let c=0; c<COLS; c++) {
       let emptySlots = [];
       for(let r=ROWS-1; r>=0; r--) {
@@ -152,14 +180,25 @@
           emptySlots.sort((a,b) => b - a);
         }
       }
-      // isi slot kosong di atas dengan warna baru
       for(let i=0; i<emptySlots.length; i++) {
         grid[emptySlots[i]][c].style.backgroundColor = randomColor();
       }
     }
   }
 
+  async function comboCheck() {
+    while(checkAndRemoveMatches()) {
+      score += 10;
+      scoreDiv.textContent = `Skor: ${score}`;
+      messageDiv.textContent = 'Combo! +10 poin';
+      await refillGrid();
+    }
+    messageDiv.textContent = 'Pilih blok untuk bermain.';
+    busy = false;
+  }
+
   createGrid();
+  messageDiv.textContent = 'Pilih blok untuk bermain.';
 </script>
 
 </body>
