@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Blox Blast Sederhana</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    background: #222;
+    color: white;
+    margin: 0; padding: 20px;
+  }
+  #game {
+    display: grid;
+    grid-template-columns: repeat(8, 40px);
+    grid-template-rows: repeat(8, 40px);
+    gap: 4px;
+    margin: 20px auto;
+    width: max-content;
+  }
+  .block {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.2s;
+  }
+  .block.selected {
+    outline: 3px solid #fff;
+    transform: scale(1.1);
+  }
+  #score {
+    font-size: 20px;
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Blox Blast Sederhana</h1>
+<div id="game"></div>
+<div id="score">Skor: 0</div>
+
+<script>
+  const ROWS = 8;
+  const COLS = 8;
+  const colors = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6'];
+  let grid = [];
+  let selected = null;
+  let score = 0;
+
+  const gameDiv = document.getElementById('game');
+  const scoreDiv = document.getElementById('score');
+
+  function randomColor() {
+    return colors[Math.floor(Math.random() * colors.length)];
+  }
+
+  function createGrid() {
+    grid = [];
+    gameDiv.innerHTML = '';
+    for(let r=0; r<ROWS; r++) {
+      let row = [];
+      for(let c=0; c<COLS; c++) {
+        let color = randomColor();
+        let block = document.createElement('div');
+        block.classList.add('block');
+        block.style.backgroundColor = color;
+        block.dataset.row = r;
+        block.dataset.col = c;
+        block.addEventListener('click', () => blockClicked(r,c));
+        gameDiv.appendChild(block);
+        row.push(block);
+      }
+      grid.push(row);
+    }
+  }
+
+  function blockClicked(r, c) {
+    if(selected === null) {
+      selected = {r, c};
+      grid[r][c].classList.add('selected');
+    } else {
+      if((Math.abs(selected.r - r) + Math.abs(selected.c - c)) === 1) {
+        swapBlocks(selected, {r, c});
+        if(checkAndRemoveMatches()) {
+          // Match found and removed, add score etc.
+          score += 10;
+          scoreDiv.textContent = `Skor: ${score}`;
+          refillGrid();
+        } else {
+          // No match, swap back
+          swapBlocks(selected, {r, c});
+        }
+      }
+      grid[selected.r][selected.c].classList.remove('selected');
+      selected = null;
+    }
+  }
+
+  function swapBlocks(pos1, pos2) {
+    let b1 = grid[pos1.r][pos1.c];
+    let b2 = grid[pos2.r][pos2.c];
+    let tempColor = b1.style.backgroundColor;
+    b1.style.backgroundColor = b2.style.backgroundColor;
+    b2.style.backgroundColor = tempColor;
+  }
+
+  function checkAndRemoveMatches() {
+    // cari blok-blok membentuk 2x2 kotak atau lebih warna sama
+    let toRemove = new Set();
+
+    for(let r=0; r<ROWS-1; r++) {
+      for(let c=0; c<COLS-1; c++) {
+        let color = grid[r][c].style.backgroundColor;
+        if(color &&
+           color === grid[r][c+1].style.backgroundColor &&
+           color === grid[r+1][c].style.backgroundColor &&
+           color === grid[r+1][c+1].style.backgroundColor) {
+          toRemove.add(`${r},${c}`);
+          toRemove.add(`${r},${c+1}`);
+          toRemove.add(`${r+1},${c}`);
+          toRemove.add(`${r+1},${c+1}`);
+        }
+      }
+    }
+
+    if(toRemove.size === 0) return false;
+
+    // hilangkan blok yang matching
+    toRemove.forEach(pos => {
+      let [r,c] = pos.split(',').map(Number);
+      grid[r][c].style.backgroundColor = '';
+    });
+    return true;
+  }
+
+  function refillGrid() {
+    for(let c=0; c<COLS; c++) {
+      let emptySlots = [];
+      for(let r=ROWS-1; r>=0; r--) {
+        if(grid[r][c].style.backgroundColor === '') {
+          emptySlots.push(r);
+        } else if(emptySlots.length > 0) {
+          let emptyRow = emptySlots.shift();
+          grid[emptyRow][c].style.backgroundColor = grid[r][c].style.backgroundColor;
+          grid[r][c].style.backgroundColor = '';
+          emptySlots.push(r);
+          emptySlots.sort((a,b) => b - a);
+        }
+      }
+      // isi slot kosong di atas dengan warna baru
+      for(let i=0; i<emptySlots.length; i++) {
+        grid[emptySlots[i]][c].style.backgroundColor = randomColor();
+      }
+    }
+  }
+
+  createGrid();
+</script>
+
+</body>
+</html>
